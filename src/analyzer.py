@@ -55,7 +55,7 @@ class Article:
         return paragraph
 
     # 1
-    def analyze_direct_answer(self):
+    def analyze_direct_answer(self) -> bool:
         forbidden_phrases = ["v tomto článku", "poďme sa pozrieť", "dozviete sa", "povieme si"]
 
         intro = self._get_first_paragraph().lower()
@@ -65,6 +65,7 @@ class Article:
 
         recommendation = f"Odstrániť nechcené frázy ({found_phrases})."
         self._add_to_report("direct_answer", passed, recommendation)
+        return passed
 
     # 2
     def _contains_definition_in_what_is_segment(self) -> bool:
@@ -105,16 +106,16 @@ class Article:
 
         return any(p in text for p in patterns)
 
-    def analyze_definition(self):
+    def analyze_definition(self) -> bool:
         passed =  (self._contains_definition_in_what_is_segment()
                    or self._contains_definition_by_title())
 
         recommendation = "Pridať priamu definíciu hlavného pojmu."
         self._add_to_report("definition", passed, recommendation)
-
+        return passed
 
     # 3
-    def analyze_headings(self):
+    def analyze_headings(self) -> bool:
         soup = BeautifulSoup(self.content_html, "html.parser")
 
         count = len(soup.find_all("h2"))
@@ -123,9 +124,10 @@ class Article:
 
         recommendation = f"Pridať nadpisy v počte aspoň {3-count}."
         self._add_to_report("headings", passed, recommendation)
+        return passed
 
     # 4
-    def analyze_facts(self):
+    def analyze_facts(self) -> bool:
         facts_regex = re.compile(
             r"\d+\s?(mg|g|kg|%|kcal|ml|mcg|gramov|miligramov)",
             re.IGNORECASE
@@ -137,37 +139,36 @@ class Article:
 
         recommendation = f"Pridať číselné údaje s jednotkami v počte aspoň {3-count}."
         self._add_to_report("facts", passed, recommendation)
+        return passed
 
     # 5
-    def analyze_sources(self):
+    def analyze_sources(self) -> bool:
         soup = BeautifulSoup(self.content_html, "html.parser")
 
+        source_domains = (
+            "pubmed.ncbi.nlm.nih.gov",
+            "pmc.ncbi.nlm.nih.gov",
+            "examine.com",
+        )
         source_text_regex = re.compile(
             r"\b(zdroje|references|štúdie)\b",
             re.IGNORECASE
         )
-        source_domains = (
-            "pubmed.ncbi.nlm.nih.gov",
-            "examine.com",
-        )
 
-        # 1. kontrola odkazov na známe zdroje
-        # TODO: check ci links su plne url, alebo len domeny
         links = [a.get("href", "") for a in soup.find_all("a", href=True)]
         has_scientific_link = any(
-            domain in link for link in links for domain in source_domains
-        )
+            domain in link for link in links for domain in source_domains)
 
-        # 2. kontrola textových výrazov
         has_source_text = bool(source_text_regex.search(self.content_clean))
 
         passed = has_scientific_link or has_source_text
 
         recommendation = 'Pridať sekciu "Zdroje".'
         self._add_to_report("sources", passed, recommendation)
+        return passed
 
     # 6
-    def analyze_faq(self):
+    def analyze_faq(self) -> bool:
         soup = BeautifulSoup(self.content_html, "html.parser")
 
         faq_regex = re.compile(
@@ -187,9 +188,10 @@ class Article:
 
         recommendation = "Pridať F&Q sekciu."
         self._add_to_report("faq", passed, recommendation)
+        return passed
 
     # 7
-    def analyze_lists(self):
+    def analyze_lists(self) -> bool:
         soup = BeautifulSoup(self.content_html, "html.parser")
 
         has_ul = soup.find("ul") is not None
@@ -199,18 +201,20 @@ class Article:
 
         recommendation = "Pridať aspoň 1 odrážkový alebo očíslovaný zoznam."
         self._add_to_report("lists", passed, recommendation)
+        return passed
 
     # 8
-    def analyze_tables(self):
+    def analyze_tables(self) -> bool:
         soup = BeautifulSoup(self.content_html, "html.parser")
 
         passed = soup.find("table") is not None
 
         recommendation = "Pridať aspoň 1 tabuľku."
         self._add_to_report("tables", passed, recommendation)
+        return passed
 
     # 9
-    def analyze_word_count_ok(self, min_words: int = 500):
+    def analyze_word_count_ok(self, min_words: int = 500) -> bool:
         words = self.content_clean.split()
         word_count = len(words)
 
@@ -218,9 +222,10 @@ class Article:
 
         recommendation = f"Článok nie je dostatočne dlhý, pridať aspoň {min_words - word_count} slov."
         self._add_to_report("word_count_ok", passed, recommendation)
+        return passed
 
     # 10
-    def analyze_meta_ok(self, min_len: int = 120, max_len: int = 160):
+    def analyze_meta_ok(self, min_len: int = 120, max_len: int = 160) -> bool:
         length = len(self.meta_description.strip())
         passed = min_len <= length <= max_len
 
@@ -230,3 +235,4 @@ class Article:
         elif length > max_len:
             recommendation = f"Meta popis je pridlhý, ubrať aspoň {length - max_len} slov."
         self._add_to_report("meta_ok", passed, recommendation)
+        return passed
