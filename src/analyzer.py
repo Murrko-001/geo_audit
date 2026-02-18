@@ -13,11 +13,11 @@ class Article:
         self.meta_description = article.get("yoast_head_json", {}).get("description", "")
 
         self.score: int = 0
-        self.report: dict[str, bool] = dict()
+        self.points: dict[str, bool] = dict()
         self.recommendations: list[str] = list()
 
     def _add_to_report(self, name:str, passed: bool, recommendation: str):
-        self.report[name] = passed
+        self.points[name] = passed
         self.score += passed
         if not passed:
             self.recommendations.append(recommendation)
@@ -236,3 +236,23 @@ class Article:
             recommendation = f"Meta popis je pridlhý, ubrať aspoň {length - max_len} slov."
         self._add_to_report("meta_ok", passed, recommendation)
         return passed
+
+    def analyze(self) -> dict:
+        self.analyze_direct_answer() # 1
+        self.analyze_definition() # 2
+        self.analyze_headings() # 3
+        self.analyze_facts() # 4
+        self.analyze_sources() # 5
+        self.analyze_faq() # 6
+        self.analyze_lists() # 7
+        self.analyze_tables() # 8
+        self.analyze_word_count_ok() # 9
+        self.analyze_meta_ok() # 10
+
+        return {
+            "url": self.url,
+            "title": self.title,
+            "score": self.score,
+            "report": self.points,
+            "recommendations": self.recommendations
+        }
