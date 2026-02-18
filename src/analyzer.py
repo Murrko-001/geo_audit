@@ -12,8 +12,15 @@ class Article:
         self.content_clean = self._get_clean_content_html()
         self.meta_description = article.get("yoast_head_json", {}).get("description", "")
 
+        self.score: int = 0
         self.report: dict[str, bool] = dict()
         self.recommendations: list[str] = list()
+
+    def _add_to_report(self, name:str, passed: bool, recommendation: str):
+        self.report[name] = passed
+        self.score += passed
+        if not passed:
+            self.recommendations.append(recommendation)
 
     def _get_clean_content_html(self) -> str:
         soup = BeautifulSoup(self.content_html, "html.parser")
@@ -55,9 +62,9 @@ class Article:
         found_phrases = [p for p in forbidden_phrases if p in intro]
 
         passed = len(found_phrases) == 0
-        self.report["direct_answer"] = passed
-        if not passed:
-            self.recommendations.append(f"Odstrániť nechcené frázy ({found_phrases}).")
+
+        recommendation = f"Odstrániť nechcené frázy ({found_phrases})."
+        self._add_to_report("direct_answer", passed, recommendation)
 
     # 2
     def _contains_definition_in_what_is_segment(self) -> bool:
@@ -102,9 +109,9 @@ class Article:
         passed =  (self._contains_definition_in_what_is_segment()
                    or self._contains_definition_by_title())
 
-        self.report["definition"] = passed
-        if not passed:
-            self.recommendations.append("Pridať priamu definíciu hlavného pojmu.")
+        recommendation = "Pridať priamu definíciu hlavného pojmu."
+        self._add_to_report("definition", passed, recommendation)
+
 
     # 3
     def analyze_headings(self):
@@ -113,9 +120,9 @@ class Article:
         count = len(soup.find_all("h2"))
 
         passed = True if count >= 3 else False
-        self.report["headings"] = passed
-        if not passed:
-            self.recommendations.append(f"Pridať nadpisy, v počte aspoň {3-count}.")
+
+        recommendation = f"Pridať nadpisy v počte aspoň {3-count}."
+        self._add_to_report("headings", passed, recommendation)
 
     # 4
     def analyze_facts(self):
@@ -127,12 +134,11 @@ class Article:
         count = len(matches)
 
         passed = True if count >= 3 else False
-        self.report["facts"] = passed
-        if not passed:
-            self.recommendations.append(f"Pridať číselné údaje s jednotkami, v počte aspoň {3-count}.")
+
+        recommendation = f"Pridať číselné údaje s jednotkami v počte aspoň {3-count}."
+        self._add_to_report("facts", passed, recommendation)
 
     # 5
-    #TODO
     def analyze_sources(self):
         soup = BeautifulSoup(self.content_html, "html.parser")
 
@@ -156,16 +162,16 @@ class Article:
         has_source_text = bool(source_text_regex.search(self.content_clean))
 
         passed = has_scientific_link or has_source_text
-        self.report["sources"] = passed
-        if not passed:
-            self.recommendations.append('Pridať sekciu "Zdroje".')
+
+        recommendation = 'Pridať sekciu "Zdroje".'
+        self._add_to_report("sources", passed, recommendation)
 
     # 6
     def analyze_faq(self):
         soup = BeautifulSoup(self.content_html, "html.parser")
 
         faq_regex = re.compile(
-            r"\b(faq|často kladené otázky|otázky a odpovede)\b",
+            r"\b(f&q|faq|často kladené otázky|otázky a odpovede)\b",
             re.IGNORECASE
         )
 
@@ -178,9 +184,9 @@ class Article:
         has_faq_text = bool(faq_regex.search(self.content_clean))
 
         passed = has_faq_heading or has_faq_text
-        self.report["faq"] = passed
-        if not passed:
-            self.recommendations.append("Pridať F&Q sekciu.")
+
+        recommendation = "Pridať F&Q sekciu."
+        self._add_to_report("faq", passed, recommendation)
 
     # 7
     def analyze_lists(self):
@@ -190,9 +196,9 @@ class Article:
         has_ol = soup.find("ol") is not None
 
         passed = has_ul or has_ol
-        self.report["lists"] = passed
-        if not passed:
-            self.recommendations.append("Pridať aspoň 1 odrážkový alebo očíslovaný zoznam.")
+
+        recommendation = "Pridať aspoň 1 odrážkový alebo očíslovaný zoznam."
+        self._add_to_report("lists", passed, recommendation)
 
     # 8
     def analyze_tables(self):
@@ -200,9 +206,8 @@ class Article:
 
         passed = soup.find("table") is not None
 
-        self.report["tables"] = passed
-        if not passed:
-            self.recommendations.append("Pridať aspoň 1 tabuľku.")
+        recommendation = "Pridať aspoň 1 tabuľku."
+        self._add_to_report("tables", passed, recommendation)
 
     # 9
     def analyze_word_count_ok(self, min_words: int = 500):
@@ -210,19 +215,18 @@ class Article:
         word_count = len(words)
 
         passed = word_count >= min_words
-        self.report["word_count_ok"] = passed
-        if not passed:
-            self.recommendations.append(f"Článok nie je dostatočne dlhý, pridať aspoň {min_words - word_count} slov.")
+
+        recommendation = f"Článok nie je dostatočne dlhý, pridať aspoň {min_words - word_count} slov."
+        self._add_to_report("word_count_ok", passed, recommendation)
 
     # 10
     def analyze_meta_ok(self, min_len: int = 120, max_len: int = 160):
         length = len(self.meta_description.strip())
         passed = min_len <= length <= max_len
 
-        self.report["meta_ok"] = passed
-        if not passed:
-            if length < min_len:
-                self.recommendations.append(f"Meta popis je prikrátky, pridať aspoň {min_len - length} slov.")
-            elif length > max_len:
-                self.recommendations.append(f"Meta popis je pridlhý, ubrať aspoň {length - max_len} slov.")
-        return None
+        recommendation = ""
+        if length < min_len:
+            recommendation = f"Meta popis je prikrátky, pridať aspoň {min_len - length} slov."
+        elif length > max_len:
+            recommendation = f"Meta popis je pridlhý, ubrať aspoň {length - max_len} slov."
+        self._add_to_report("meta_ok", passed, recommendation)
