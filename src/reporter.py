@@ -83,3 +83,20 @@ class Reporter:
 
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(html)
+
+    def do_report(self,
+                  posts,
+                  report_to_csv: bool = True,
+                  report_to_html: bool = True,
+                  output_path_csv: str = OUTPUT_PATH_CSV,
+                  output_path_html: str = OUTPUT_PATH_HTML,
+                  ) -> None:
+
+        for post in posts:
+            article = Article(post)
+            self.add_article(article)
+
+        if report_to_csv:
+            self.export_csv(output_path_csv)
+        if report_to_html:
+            self.export_html(output_path_html)
