@@ -1,5 +1,4 @@
 import warnings
-
 from bs4 import BeautifulSoup
 import re
 
@@ -7,8 +6,32 @@ from src.utils import inflection
 
 WHITESPACE_RE = re.compile(r"\s+")
 
+
 class Article:
+    """
+    Represent and analyze a single WordPress article.
+
+    An `Article` instance wraps the raw WordPress post payload and exposes
+    multiple analysis methods that evaluate content quality, structure, and
+    metadata. Results are accumulated into a score, a per-check report, and
+    human-readable recommendations.
+    """
     def __init__(self, post):
+        """
+        Args:
+            post: Dictionary representing a WordPress post object.
+
+        Attributes:
+            self.id: Unique post identifier.
+            self.url: URL of the article.
+            self.title: Article title.
+            self.content_html: Raw HTML content of the article.
+            self.content_clean: Plain-text version of the content.
+            self.meta_description: Meta description of the article.
+            self.score: Total score accumulated from analysis checks.
+            self.points: Mapping of analysis names to boolean pass/fail values.
+            self.recommendations: List of recommendations for failed checks.
+        """
         self.id = post["id"]
         self.url = post["link"]
         self.title = post["title"]["rendered"]
@@ -21,12 +44,29 @@ class Article:
         self.recommendations: list[str] = list()
 
     def _add_to_report(self, name:str, passed: bool, recommendation: str) -> None:
+        """
+        Record the result of a single analysis check.
+
+        Args:
+            name: Identifier of the analysis check.
+            passed: Whether the check passed.
+            recommendation: Recommendation text shown if the check failed.
+        """
         self.points[name] = passed
         self.score += 1 if passed else 0
         if not passed:
             self.recommendations.append(recommendation)
 
     def _get_clean_content_html(self) -> str:
+        """
+        Extract and normalize plain text from the article HTML.
+
+        This removes table-of-contents blocks, scripts, styles, and excessive
+        whitespace.
+
+        Returns:
+            Cleaned plain-text content of the article.
+        """
         soup = BeautifulSoup(self.content_html, "html.parser")
 
         toc = soup.find("div", id="ez-toc-container")
@@ -42,6 +82,12 @@ class Article:
         return clean_text
 
     def _get_first_paragraph(self) -> str:
+        """
+        Extract the first paragraph of the article.
+
+        Returns:
+            Text of the first `<p>` element, or an empty string if none exists.
+        """
         soup = BeautifulSoup(self.content_html, "html.parser")
 
         toc = soup.find("div", id="ez-toc-container")
@@ -60,6 +106,15 @@ class Article:
 
     # 1
     def analyze_direct_answer(self) -> bool:
+        """
+        Check whether the article starts with a direct answer.
+
+        The check fails if the introductory paragraph contains generic or
+        non-informative phrases.
+
+        Returns:
+            True if no forbidden phrases are found, otherwise False.
+        """
         forbidden_phrases = ["v tomto článku", "poďme sa pozrieť", "dozviete sa", "povieme si"]
 
         intro = self._get_first_paragraph().lower()
@@ -73,6 +128,12 @@ class Article:
 
     # 2
     def _contains_definition_in_what_is_segment(self) -> bool:
+        """
+        Detect whether the table of contents contains a 'what is' definition section.
+
+        Returns:
+            True if a relevant segment is found, otherwise False.
+        """
         soup = BeautifulSoup(self.content_html, "html.parser")
 
         toc = soup.find("div", id="ez-toc-container")
@@ -85,10 +146,16 @@ class Article:
 
     def _contains_definition_by_title(self) -> bool:
         """
-        Jednoduchá kontrola definície:
-        - title musí obsahovať ':'
-        - časť naľavo je X (max 2 slová)
-        - v texte sa hľadá: 'X je', 'X znamená', 'X predstavuje'
+        Heuristically detect a definition based on the article title and content.
+
+        Rules:
+        - The title must contain ':'.
+        - The left side of ':' must be a short keyword X (max two words).
+        - The content must contain phrases such as 'X je', 'X znamená', or
+          'X predstavuje'.
+
+        Returns:
+            True if a definition pattern is detected, otherwise False.
         """
 
         if ":" not in self.title:
@@ -111,6 +178,12 @@ class Article:
         return any(p in text for p in patterns)
 
     def analyze_definition(self) -> bool:
+        """
+        Check whether the article contains a clear definition of its main topic.
+
+        Returns:
+            True if a definition is detected, otherwise False.
+        """
         passed =  (self._contains_definition_in_what_is_segment()
                    or self._contains_definition_by_title())
 
@@ -120,6 +193,12 @@ class Article:
 
     # 3
     def analyze_headings(self) -> bool:
+        """
+        Check whether the article contains a sufficient number of H2 headings.
+
+        Returns:
+            True if at least three H2 headings are present, otherwise False.
+        """
         soup = BeautifulSoup(self.content_html, "html.parser")
 
         count = len(soup.find_all("h2"))
@@ -132,6 +211,12 @@ class Article:
 
     # 4
     def analyze_facts(self) -> bool:
+        """
+        Check whether the article contains enough numeric facts with units.
+
+        Returns:
+            True if at least three numeric facts are found, otherwise False.
+        """
         facts_regex = re.compile(
             r"\d+\s?(mg|g|kg|%|kcal|ml|mcg|gramov|miligramov)",
             re.IGNORECASE
@@ -147,6 +232,12 @@ class Article:
 
     # 5
     def analyze_sources(self) -> bool:
+        """
+        Check whether the article references scientific or credible sources.
+
+        Returns:
+            True if scientific links or a sources section is present, otherwise False.
+        """
         soup = BeautifulSoup(self.content_html, "html.parser")
 
         source_domains = (
@@ -173,6 +264,12 @@ class Article:
 
     # 6
     def analyze_faq(self) -> bool:
+        """
+        Check whether the article contains an FAQ section.
+
+        Returns:
+            True if an FAQ section is detected, otherwise False.
+        """
         soup = BeautifulSoup(self.content_html, "html.parser")
 
         faq_regex = re.compile(
@@ -196,6 +293,12 @@ class Article:
 
     # 7
     def analyze_lists(self) -> bool:
+        """
+        Check whether the article contains at least one list.
+
+        Returns:
+            True if an ordered or unordered list is present, otherwise False.
+        """
         soup = BeautifulSoup(self.content_html, "html.parser")
 
         has_ul = soup.find("ul") is not None
@@ -209,6 +312,12 @@ class Article:
 
     # 8
     def analyze_tables(self) -> bool:
+        """
+        Check whether the article contains at least one table.
+
+        Returns:
+            True if a table is present, otherwise False.
+        """
         soup = BeautifulSoup(self.content_html, "html.parser")
 
         passed = soup.find("table") is not None
@@ -219,6 +328,15 @@ class Article:
 
     # 9
     def analyze_word_count_ok(self, min_words: int = 500) -> bool:
+        """
+        Check whether the article meets the minimum word count.
+
+        Args:
+            min_words: Minimum required number of words.
+
+        Returns:
+            True if the word count is sufficient, otherwise False.
+        """
         words = self.content_clean.split()
         word_count = len(words)
 
@@ -230,6 +348,16 @@ class Article:
 
     # 10
     def analyze_meta_ok(self, min_len: int = 120, max_len: int = 160) -> bool:
+        """
+        Check whether the meta description length is within the recommended range.
+
+        Args:
+            min_len: Minimum allowed length.
+            max_len: Maximum allowed length.
+
+        Returns:
+            True if the meta description length is acceptable, otherwise False.
+        """
         length = len(self.meta_description.strip())
         passed = min_len <= length <= max_len
 
@@ -242,6 +370,14 @@ class Article:
         return passed
 
     def _run_analysis_step(self, name: str, fn) -> None:
+        """
+        Execute an analysis step safely and record failures as warnings.
+        Allows the analysis to continue despite a failure at a singular point.
+
+        Args:
+            name: Name of the analysis step.
+            fn: Callable performing the analysis.
+        """
         try:
             fn()
         except Exception as exc:
@@ -257,6 +393,13 @@ class Article:
             )
 
     def analyze(self) -> dict:
+        """
+        Run all analysis checks on the article.
+
+        Returns:
+            Dictionary containing the article URL, title, total score,
+            per-check results, and generated recommendations.
+        """
         self._run_analysis_step("direct_answer", self.analyze_direct_answer)  # 1
         self._run_analysis_step("definition", self.analyze_definition)  # 2
         self._run_analysis_step("headings", self.analyze_headings)  # 3
