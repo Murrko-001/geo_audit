@@ -5,6 +5,9 @@ TEMPLATE_DIR = PROJECT_DIR / "templates"
 OUTPUT_DIR = PROJECT_DIR / "output"
 DATA_DIR = PROJECT_DIR / "data"
 
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+
 
 def inflection(num: int) -> str:
     """
