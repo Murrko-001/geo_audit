@@ -32,9 +32,16 @@ def to_int(v) -> int:
         return 0
 
 def load_template(name: str) -> str:
-    return (TEMPLATE_DIR / name).read_text(encoding="utf-8")
+    path = TEMPLATE_DIR / name
+    try:
+        return path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise OSError(f"Failed to read template: {path}") from exc
 
 def calc_summary(data_rows: list[dict]) -> tuple[int, float, str]:
+    if data_rows is None:
+        data_rows = []
+
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
     total_articles = len(data_rows)
 
@@ -63,6 +70,8 @@ def render_cards(data_rows: list[dict], total_points: int) -> str:
     parts: list[str] = []
 
     for r in data_rows:
+        if not isinstance(r, dict):
+            continue
         url = escape(str(r.get("url", "")))
         atitle = escape(str(r.get("title", "")))
         score = to_int(r.get("score"))
@@ -129,7 +138,7 @@ def render_table(data_rows: list[dict], total_points: int) -> tuple[str, str]:
     return table_header_html, "".join(row_parts)
 
 
-def fill_template(template: str, ctx: dict[str, str]) -> str:
+def fill_template(template: str, ctx: dict[str, object]) -> str:
     for k, v in ctx.items():
-        template = template.replace(f"{{{{{k}}}}}", v)
+        template = template.replace(f"{{{{{k}}}}}", "" if v is None else str(v))
     return template

@@ -5,10 +5,10 @@ TEMPLATE_DIR = PROJECT_DIR / "templates"
 OUTPUT_DIR = PROJECT_DIR / "output"
 DATA_DIR = PROJECT_DIR / "data"
 
-def inflection(difference: int):
-    if difference == 1:
+def inflection(num: int):
+    if num == 1:
         return 'o'
-    elif 1 < difference < 5:
+    elif 1 < num < 5:
         return 'á'
 
     return ''

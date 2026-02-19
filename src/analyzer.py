@@ -1,3 +1,5 @@
+import warnings
+
 from bs4 import BeautifulSoup
 import re
 
@@ -10,7 +12,7 @@ class Article:
         self.id = post["id"]
         self.url = post["link"]
         self.title = post["title"]["rendered"]
-        self.content_html = post["content"]["rendered"]
+        self.content_html = post["content"]["rendered"] or ""
         self.content_clean = self._get_clean_content_html()
         self.meta_description = post.get("yoast_head_json", {}).get("description", "")
 
@@ -18,9 +20,9 @@ class Article:
         self.points: dict[str, bool] = dict()
         self.recommendations: list[str] = list()
 
-    def _add_to_report(self, name:str, passed: bool, recommendation: str):
+    def _add_to_report(self, name:str, passed: bool, recommendation: str) -> None:
         self.points[name] = passed
-        self.score += passed
+        self.score += 1 if passed else 0
         if not passed:
             self.recommendations.append(recommendation)
 
@@ -239,22 +241,37 @@ class Article:
         self._add_to_report("meta_ok", passed, recommendation)
         return passed
 
+    def _run_analysis_step(self, name: str, fn) -> None:
+        try:
+            fn()
+        except Exception as exc:
+            warnings.warn(
+                f"Analysis step '{name}' failed for article '{self.url}': {exc}",
+                category=RuntimeWarning,
+                stacklevel=2,
+            )
+            self._add_to_report(
+                name=name,
+                passed=False,
+                recommendation=f"Analýza '{name}' zlyhala kvôli chybe."
+            )
+
     def analyze(self) -> dict:
-        self.analyze_direct_answer() # 1
-        self.analyze_definition() # 2
-        self.analyze_headings() # 3
-        self.analyze_facts() # 4
-        self.analyze_sources() # 5
-        self.analyze_faq() # 6
-        self.analyze_lists() # 7
-        self.analyze_tables() # 8
-        self.analyze_word_count_ok() # 9
-        self.analyze_meta_ok() # 10
+        self._run_analysis_step("direct_answer", self.analyze_direct_answer)  # 1
+        self._run_analysis_step("definition", self.analyze_definition)  # 2
+        self._run_analysis_step("headings", self.analyze_headings)  # 3
+        self._run_analysis_step("facts", self.analyze_facts)  # 4
+        self._run_analysis_step("sources", self.analyze_sources)  # 5
+        self._run_analysis_step("faq", self.analyze_faq)  # 6
+        self._run_analysis_step("lists", self.analyze_lists)  # 7
+        self._run_analysis_step("tables", self.analyze_tables)  # 8
+        self._run_analysis_step("word_count_ok", self.analyze_word_count_ok)  # 9
+        self._run_analysis_step("meta_ok", self.analyze_meta_ok)  # 10
 
         return {
             "url": self.url,
             "title": self.title,
             "score": self.score,
             "report": self.points,
-            "recommendations": self.recommendations
+            "recommendations": self.recommendations,
         }

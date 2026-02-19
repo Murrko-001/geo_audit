@@ -33,32 +33,38 @@ class Reporter:
         self.rows: list[dict[str, Any]] = []
 
     def add_article(self, article: "Article") -> None:
-        result = article.analyze()
-        report = result.get("report")
-        recs = result.get("recommendations")
+        result = article.analyze() or {}
+        report = result.get("report") or {}
+        recs = result.get("recommendations") or []
 
         row = {k: int(v) for k, v in report.items()}
-        row["url"] = result.get("url")
-        row["title"] = result.get("title")
-        row["score"] = result.get("score")
+        row["url"] = result.get("url", "")
+        row["title"] = result.get("title", "")
+        row["score"] = result.get("score", 0)
         row["recommendations"] = " | ".join(recs)
 
         self.rows.append(row)
 
     def export_csv(self, output_path: str = OUTPUT_PATH_CSV) -> None:
-        with open(output_path, "w", encoding="utf-8", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=self.columns)
-            writer.writeheader()
+        try:
+            with open(output_path, "w", encoding="utf-8", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=self.columns, extrasaction='ignore')
+                writer.writeheader()
 
-            for row in self.rows:
-                writer.writerow(row)
+                for row in self.rows:
+                    writer.writerow(row)
+        except OSError as exc:
+            raise OSError(f"Failed to write CSV to {output_path}") from exc
 
     def export_html(self, output_path: str = OUTPUT_PATH_HTML, title: str = "GEO Report") -> None:
         def prepare_rows() -> list[dict]:
             return [r for r in self.rows if r.get("url")]
 
-        template = load_template("report.html")
-        css = load_template("report.css")
+        try:
+            template = load_template("report.html")
+            css = load_template("report.css")
+        except OSError as exc:
+            raise OSError("Failed to load HTML/CSS templates") from exc
 
         data_rows = prepare_rows()
         total_points = get_total_points()
@@ -81,8 +87,11 @@ class Reporter:
 
         html = fill_template(template, ctx)
 
-        with open(output_path, "w", encoding="utf-8") as f:
-            f.write(html)
+        try:
+            with open(output_path, "w", encoding="utf-8") as f:
+                f.write(html)
+        except OSError as exc:
+            raise OSError(f"Failed to write HTML to {output_path}") from exc
 
     def do_report(self,
                   posts,
