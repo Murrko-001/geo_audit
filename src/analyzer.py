@@ -1,16 +1,18 @@
 from bs4 import BeautifulSoup
 import re
 
+from src.utils import inflection
+
 WHITESPACE_RE = re.compile(r"\s+")
 
 class Article:
-    def __init__(self, article):
-        self.id = article["id"]
-        self.url = article["link"]
-        self.title = article["title"]["rendered"]
-        self.content_html = article["content"]["rendered"]
+    def __init__(self, post):
+        self.id = post["id"]
+        self.url = post["link"]
+        self.title = post["title"]["rendered"]
+        self.content_html = post["content"]["rendered"]
         self.content_clean = self._get_clean_content_html()
-        self.meta_description = article.get("yoast_head_json", {}).get("description", "")
+        self.meta_description = post.get("yoast_head_json", {}).get("description", "")
 
         self.score: int = 0
         self.points: dict[str, bool] = dict()
@@ -122,7 +124,7 @@ class Article:
 
         passed = True if count >= 3 else False
 
-        recommendation = f"Pridať nadpisy v počte aspoň {3-count}."
+        recommendation = f"Pridať nadpisy h2 v počte aspoň {3-count}."
         self._add_to_report("headings", passed, recommendation)
         return passed
 
@@ -220,7 +222,7 @@ class Article:
 
         passed = word_count >= min_words
 
-        recommendation = f"Článok nie je dostatočne dlhý, pridať aspoň {min_words - word_count} slov."
+        recommendation = f"Článok nie je dostatočne dlhý, pridať aspoň {min_words - word_count} slov{inflection(min_words - word_count)}."
         self._add_to_report("word_count_ok", passed, recommendation)
         return passed
 
@@ -231,9 +233,9 @@ class Article:
 
         recommendation = ""
         if length < min_len:
-            recommendation = f"Meta popis je prikrátky, pridať aspoň {min_len - length} slov."
+            recommendation = f"Meta popis je prikrátky, pridať aspoň {min_len - length} slov{inflection(min_len - length)}."
         elif length > max_len:
-            recommendation = f"Meta popis je pridlhý, ubrať aspoň {length - max_len} slov."
+            recommendation = f"Meta popis je pridlhý, ubrať aspoň {length - max_len} slov{inflection(length - max_len)}."
         self._add_to_report("meta_ok", passed, recommendation)
         return passed
 

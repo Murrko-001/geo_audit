@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="sk">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{TITLE}}</title>
+  <style>
+  {{CSS}}
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div>
+        <div class="brand">
+          <div class="logo" aria-hidden="true"></div>
+          <div>
+            <h1>{{TITLE}}</h1>
+            <div class="meta">Vygenerované: {{NOW}} • Bodovanie: <span class="accent">{{TOTAL_POINTS}}</span> bodov</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stats">
+        <div class="stat">
+          <div class="k">Počet článkov</div>
+          <div class="v">{{TOTAL_ARTICLES}}</div>
+        </div>
+        <div class="stat">
+          <div class="k">Priemerné skóre</div>
+          <div class="v">{{AVG_SCORE}}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid">
+      {{CARDS_HTML}}
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            {{TABLE_HEADER_HTML}}
+          </tr>
+        </thead>
+        <tbody>
+          {{TABLE_ROWS_HTML}}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="footer">
+      Tip: Otvor si tento súbor v prehliadači a posielaj ďalej ako report (vyzerá lepšie než CSV).
+    </div>
+  </div>
+</body>
+</html>
