@@ -56,10 +56,7 @@ Install the runtime dependencies required to run the application:
 ```
 pip install -r requirements.txt
 ```
-(Optional) To run tests:
-```
-pip install -r requirements-dev.txt
-```
+
 ---
 
 ## Running the application
@@ -109,4 +106,21 @@ Use local cached articles and export CSV only:
 
 ```bash
 python geo_audit.py --csv
+```
+
+---
+
+## Running tests
+
+Unit tests are implemented using `pytest`.
+
+Before running the tests, install the development dependencies:
+
+```bash
+pip install -r requirements-dev.txt
+```
+
+Run all tests from the project root:
+```
+pytest
 ```
