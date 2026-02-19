@@ -106,16 +106,18 @@ def render_cards(data_rows: list[dict], total_points: int) -> str:
 
 
 def render_table(data_rows: list[dict], total_points: int) -> tuple[str, str]:
-    header_cells = ["URL", "Skóre"] + [escape(POINT_LABELS.get(c, c)) for c in POINT_COLS]
+    header_cells = ["URL", "Názov", "Skóre"] + [escape(POINT_LABELS.get(c, c)) for c in POINT_COLS]
     table_header_html = "".join(f"<th>{c}</th>" for c in header_cells)
 
     row_parts: list[str] = []
     for r in data_rows:
         url = escape(str(r.get("url", "")))
+        title = escape(str(r.get("title", "")))
         score = to_int(r.get("score"))
 
         cells = [
             f'<td class="td-url"><a href="{url}" target="_blank" rel="noopener noreferrer">link</a></td>',
+            f'<td class="td-title">{title}</td>',
             f"<td>{score_badge(score, total_points)}</td>",
         ]
         for c in POINT_COLS:
